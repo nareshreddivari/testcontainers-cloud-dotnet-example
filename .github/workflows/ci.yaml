@@ -8,7 +8,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup .NET Core
         uses: actions/setup-dotnet@v4
@@ -23,6 +24,20 @@ jobs:
         with:
           token: ${{ secrets.TC_CLOUD_TOKEN }}
 
-      - name: Run example
+      - name: Verify Docker Context
         run: |
-          make test
+          echo "Checking available Docker contexts..."
+          docker context ls
+          echo "Switching to Testcontainers Cloud context..."
+          docker context use tcc || exit 1
+          echo "Current Docker info:"
+          docker info
+
+      - name: Enable Testcontainers Debug Logs
+        run: |
+          echo "Enabling Testcontainers debug logs..."
+          echo "TESTCONTAINERS_RYUK_DISABLED=false" >> $GITHUB_ENV
+          echo "TESTCONTAINERS_LOG_LEVEL=DEBUG" >> $GITHUB_ENV
+
+      - name: Run tests
+        run: make test
