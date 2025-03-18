@@ -8,7 +8,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup .NET Core
@@ -16,28 +16,35 @@ jobs:
         with:
           dotnet-version: '7.x'
 
-      - name: Restore .NET tools
+      - name: Restore .NET Tools
         run: dotnet tool restore
 
+      # Authenticate with Docker Hub using Personal Access Token
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_HUB_PAT }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+
+      # Setup Testcontainers Cloud
       - name: Setup Testcontainers Cloud Client
         uses: atomicjar/testcontainers-cloud-setup-action@main
         with:
           token: ${{ secrets.TC_CLOUD_TOKEN }}
 
-      - name: Verify Docker Context
+      # Verify Testcontainers Cloud Status
+      - name: Check Testcontainers Cloud Status
         run: |
           echo "Checking available Docker contexts..."
           docker context ls
           echo "Switching to Testcontainers Cloud context..."
           docker context use tcc || exit 1
           echo "Current Docker info:"
-          docker info
+          docker info || exit 1
 
-      - name: Enable Testcontainers Debug Logs
+      # Wait for Testcontainers Cloud to fully initialize
+      - name: Wait for Testcontainers Cloud to Initialize
+        run: sleep 10
+
+      # Run tests
+      - name: Run Tests with Testcontainers Cloud
         run: |
-          echo "Enabling Testcontainers debug logs..."
-          echo "TESTCONTAINERS_RYUK_DISABLED=false" >> $GITHUB_ENV
-          echo "TESTCONTAINERS_LOG_LEVEL=DEBUG" >> $GITHUB_ENV
-
-      - name: Run tests
-        run: make test
+          docker context use tcc
+          make test
