@@ -27,6 +27,17 @@ jobs:
       - name: Log in to Docker Hub
         run: echo "${{ secrets.DOCKER_HUB_PAT }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
 
+      # Check for Running Workflows & Prevent Multiple Testcontainers Sessions
+      - name: Ensure No Concurrent Workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUNNING_WORKFLOWS=$(gh run list --repo $GITHUB_REPOSITORY --status in_progress | grep "CI" | wc -l)
+          if [[ "$RUNNING_WORKFLOWS" -gt 1 ]]; then
+            echo "Another workflow is running. Exiting to avoid conflicts."
+            exit 1
+          fi
+
       # Setup Testcontainers Cloud
       - name: Setup Testcontainers Cloud Client
         uses: atomicjar/testcontainers-cloud-setup-action@main
@@ -34,58 +45,40 @@ jobs:
           token: ${{ secrets.TC_CLOUD_TOKEN }}
 
       # Ensure Testcontainers Cloud Agent is Running
-      - name: Verify Testcontainers Cloud Agent
+      - name: Verify & Restart Testcontainers Cloud Agent if Needed
         run: |
           if ! pgrep -f testcontainers-cloud-agent > /dev/null; then
             echo "Testcontainers Cloud Agent is NOT running. Restarting..."
             nohup testcontainers-cloud-agent > /dev/null 2>&1 &
-            sleep 5
+            sleep 10
           fi
 
-      # Verify Testcontainers Cloud Status
-      - name: Verify Testcontainers Cloud Status
+      # Verify Testcontainers Cloud Context and Recreate if Needed
+      - name: Verify & Recreate Testcontainers Cloud Context
         run: |
           echo "Checking available Docker contexts..."
           docker context ls
-          
-          echo "Waiting for Testcontainers Cloud to be ready..."
-          sleep 10
-          
-          echo "Checking if 'tcc' context exists..."
+
           if docker context ls | grep -q "tcc"; then
-            echo "Context 'tcc' found. Switching..."
+            echo "'tcc' context exists."
           else
-            echo "Error: 'tcc' context not found. Exiting..."
-            exit 1
+            echo "'tcc' context missing! Recreating..."
+            testcontainers-cloud-agent restart
+            sleep 15
           fi
 
+          # Retry switching context to 'tcc'
+          echo "Switching to 'tcc' context..."
           for i in {1..5}; do
             docker context use tcc && break || sleep 5
           done
-          
-          echo "Validating Docker info..."
+
+      # Final Docker Info Check
+      - name: Verify Docker Context
+        run: |
           for i in {1..5}; do
             docker info && break || (echo "Retrying in 5s..." && sleep 5)
           done
-
-      # Prevent Multiple Workflows Using Testcontainers Cloud
-      - name: Check for Running Workflows
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RUNNING_WORKFLOWS=$(gh run list --repo $GITHUB_REPOSITORY --status in_progress | wc -l)
-          if [[ "$RUNNING_WORKFLOWS" -gt 1 ]]; then
-            echo "Another workflow is running. Exiting to avoid conflicts."
-            exit 1
-          fi
-
-      # Wait for Testcontainers Cloud to fully initialize
-      - name: Wait for Testcontainers Cloud to Initialize
-        run: sleep 15
-
-      # Verify Docker Context Again Before Running Tests
-      - name: Final Docker Context Check
-        run: docker info || exit 1
 
       # Run tests
       - name: Run Tests with Testcontainers Cloud
