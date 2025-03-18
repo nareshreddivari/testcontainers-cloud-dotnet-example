@@ -31,10 +31,15 @@ public sealed class TestcontainersCloudFirstTest
         var isDockerCloudLabel = versionResponse.Labels.Any(label => label.Contains(cloudLabel));
         var isTestcontainersDesktop = versionResponse.ServerVersion.Contains("Testcontainers Desktop");
         var isTestcontainersCloud = versionResponse.ServerVersion.Contains("testcontainerscloud");
+        // if (!(isTestcontainersDesktop || isTestcontainersCloud || isDockerCloudLabel))
+        // {
+        //     Console.WriteLine(PrettyStrings.OhNo);
+        //     Assert.Fail();
+        // }
         if (!(isTestcontainersDesktop || isTestcontainersCloud || isDockerCloudLabel))
         {
-            Console.WriteLine(PrettyStrings.OhNo);
-            Assert.Fail();
+        Console.WriteLine("❌ Test failed: Docker does not match expected environments.");
+        Assert.Fail($"Unexpected Docker Environment.\nServer Version: {versionResponse.ServerVersion}\nOS: {versionResponse.OperatingSystem}");
         }
 
         var runtimeName = "Testcontainers Cloud";
