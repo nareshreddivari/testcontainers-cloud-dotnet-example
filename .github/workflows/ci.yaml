@@ -33,35 +33,58 @@ jobs:
         with:
           token: ${{ secrets.TC_CLOUD_TOKEN }}
 
-      
+      # Ensure Testcontainers Cloud Agent is Running
+      - name: Verify Testcontainers Cloud Agent
+        run: |
+          if ! pgrep -f testcontainers-cloud-agent > /dev/null; then
+            echo "Testcontainers Cloud Agent is NOT running. Restarting..."
+            nohup testcontainers-cloud-agent > /dev/null 2>&1 &
+            sleep 5
+          fi
+
+      # Verify Testcontainers Cloud Status
       - name: Verify Testcontainers Cloud Status
         run: |
           echo "Checking available Docker contexts..."
           docker context ls
+          
           echo "Waiting for Testcontainers Cloud to be ready..."
           sleep 10
-          echo "Switching to Testcontainers Cloud context..."
+          
+          echo "Checking if 'tcc' context exists..."
+          if docker context ls | grep -q "tcc"; then
+            echo "Context 'tcc' found. Switching..."
+          else
+            echo "Error: 'tcc' context not found. Exiting..."
+            exit 1
+          fi
+
           for i in {1..5}; do
             docker context use tcc && break || sleep 5
           done
-          echo "Current Docker info:"
+          
+          echo "Validating Docker info..."
           for i in {1..5}; do
             docker info && break || (echo "Retrying in 5s..." && sleep 5)
           done
+
+      # Prevent Multiple Workflows Using Testcontainers Cloud
+      - name: Check for Running Workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUNNING_WORKFLOWS=$(gh run list --repo $GITHUB_REPOSITORY --status in_progress | wc -l)
+          if [[ "$RUNNING_WORKFLOWS" -gt 1 ]]; then
+            echo "Another workflow is running. Exiting to avoid conflicts."
+            exit 1
+          fi
 
       # Wait for Testcontainers Cloud to fully initialize
       - name: Wait for Testcontainers Cloud to Initialize
         run: sleep 15
 
-      # Retry Context Switching
-      - name: Retry Testcontainers Cloud Context Switch
-        run: |
-          for i in {1..5}; do
-            docker context use tcc && break || sleep 5
-          done
-
-      # Check Docker Info
-      - name: Verify Docker Context
+      # Verify Docker Context Again Before Running Tests
+      - name: Final Docker Context Check
         run: docker info || exit 1
 
       # Run tests
