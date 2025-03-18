@@ -34,15 +34,20 @@ jobs:
           token: ${{ secrets.TC_CLOUD_TOKEN }}
 
       
-      # # Verify Testcontainers Cloud Status
-      # - name: Check Testcontainers Cloud Status
-      #   run: |
-      #     echo "Checking available Docker contexts..."
-      #     docker context ls
-      #     echo "Switching to Testcontainers Cloud context..."
-      #     docker context use tcc || exit 1
-      #     echo "Current Docker info:"
-      #     docker info || exit 1
+      - name: Verify Testcontainers Cloud Status
+        run: |
+          echo "Checking available Docker contexts..."
+          docker context ls
+          echo "Waiting for Testcontainers Cloud to be ready..."
+          sleep 10
+          echo "Switching to Testcontainers Cloud context..."
+          for i in {1..5}; do
+            docker context use tcc && break || sleep 5
+          done
+          echo "Current Docker info:"
+          for i in {1..5}; do
+            docker info && break || (echo "Retrying in 5s..." && sleep 5)
+          done
 
       # Wait for Testcontainers Cloud to fully initialize
       - name: Wait for Testcontainers Cloud to Initialize
