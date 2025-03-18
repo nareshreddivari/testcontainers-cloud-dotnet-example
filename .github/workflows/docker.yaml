@@ -1,39 +1,44 @@
-name: Test Docker Image
+name: Testcontainers Cloud Workflow
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
-  test-existing-image:
+  test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Set Up .NET
+        uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '7.x'
+          dotnet-version: 7.0.x
 
-      - name: Setup Testcontainers Cloud
-        uses: atomicjar/testcontainers-cloud-setup-action@main
-        with:
-          token: ${{ secrets.TC_CLOUD_TOKEN }}
+      - name: Install Testcontainers Cloud CLI
+        run: |
+          curl -fsSL https://get.testcontainers.cloud | sh
+          echo "export PATH=\"$HOME/.testcontainers/bin:$PATH\"" >> $HOME/.bashrc
+          source $HOME/.bashrc
 
-      - name: Force Testcontainers Cloud as Docker context
-        run: docker context use tcc
+      - name: Start Testcontainers Cloud Agent
+        run: |
+          testcontainers-cloud &  # Start agent in background
+          sleep 5  # Wait for the agent to initialize
+          testcontainers-cloud --status || echo "Testcontainers Cloud agent failed to start!"
 
-      - name: Debug Docker Context
-        run: docker context ls
+      - name: Set Docker Context to Testcontainers Cloud
+        run: |
+          docker context use tcc || echo "Testcontainers Cloud context not available"
+          docker context ls
 
-      - name: Check if Testcontainers Cloud Agent is running
-        run: ps aux | grep testcontainers | grep -v grep || echo "Testcontainers Cloud agent is not running!"
+      - name: List Running Docker Containers
+        run: docker ps -a
 
-      - name: Change to project directory
-        run: cd tests
-
-      - name: Run Tests using Testcontainers
-        run: dotnet test --logger:"console;verbosity=detailed"
-        env:
-          DOCKER_HOST: "tcp://127.0.0.1:38307"  # Update based on docker context ls output
+      - name: Run Tests with Testcontainers Cloud
+        run: |
+          cd tests
+          dotnet test --logger:"console;verbosity=detailed"
