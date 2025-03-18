@@ -1,0 +1,26 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches: [ main ]  # Run workflow on push to main branch
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_HUB_PAT }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/getting-started-todo-app .
+
+      - name: Verify Docker Image
+        run: docker image ls ${{ secrets.DOCKER_HUB_USERNAME }}/getting-started-todo-app
+
+      - name: Push Docker Image to Docker Hub
+        run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/getting-started-todo-app
