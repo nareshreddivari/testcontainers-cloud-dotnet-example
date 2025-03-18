@@ -18,31 +18,22 @@ jobs:
         with:
           dotnet-version: 7.0.x
 
-      - name: Install Testcontainers Cloud
+      - name: Install Testcontainers Cloud (Manual Login Required)
         run: |
-          set -e  # Exit immediately on error
+          set -e  # Exit on error
           
-          echo "Checking DNS resolution for Testcontainers Cloud..."
+          echo "Checking if Testcontainers Cloud is accessible..."
           if ! nslookup download.testcontainers.cloud > /dev/null 2>&1; then
-            echo "❌ Could not resolve host: download.testcontainers.cloud"
+            echo "❌ Testcontainers Cloud download URL is not reachable!"
+            exit 1
           fi
 
-          echo "Attempting to download Testcontainers Cloud..."
-          if curl -fsSL https://download.testcontainers.cloud/testcontainers-cloud-linux -o install-tc.sh; then
-            echo "✅ Download successful via curl!"
-          elif wget -q https://download.testcontainers.cloud/testcontainers-cloud-linux -O install-tc.sh; then
-            echo "✅ Download successful via wget!"
-          else
-            echo "❌ Primary and fallback downloads failed! Trying alternative method..."
-            if curl -fsSL https://get.testcontainers.cloud | bash; then
-              echo "✅ Installed via alternative method!"
-              exit 0
-            else
-              echo "❌ All installation methods failed! Exiting..."
-              exit 1
-            fi
-          fi
+          echo "Attempting to log in..."
+          testcontainers-cloud login || { echo "❌ Failed to log in!"; exit 1; }
 
+          echo "Downloading Testcontainers Cloud..."
+          curl -fsSL https://download.testcontainers.cloud/testcontainers-cloud-linux -o install-tc.sh
+          
           chmod +x install-tc.sh
           ./install-tc.sh
 
