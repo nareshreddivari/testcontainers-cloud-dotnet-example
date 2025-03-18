@@ -28,6 +28,7 @@ jobs:
           echo "Downloading Testcontainers Cloud..."
           curl -fsSL -o testcontainers-cloud https://download.testcontainers.cloud/testcontainers-cloud-linux
           chmod +x testcontainers-cloud
+          mkdir -p $HOME/.testcontainers/bin
           mv testcontainers-cloud $HOME/.testcontainers/bin/
           export PATH="$HOME/.testcontainers/bin:$PATH"
           echo "export PATH=\"$HOME/.testcontainers/bin:\$PATH\"" >> $HOME/.bashrc
@@ -36,7 +37,13 @@ jobs:
 
       - name: Verify Downloaded File (First 20 Lines)
         run: |
-          head -n 20 $HOME/.testcontainers/bin/testcontainers-cloud || echo "❌ File not found!"
+          if [ -f "$HOME/.testcontainers/bin/testcontainers-cloud" ]; then
+            echo "✅ File exists. Showing first 20 lines:"
+            head -n 20 $HOME/.testcontainers/bin/testcontainers-cloud
+          else
+            echo "❌ File not found!"
+            exit 1
+          fi
 
       - name: Fallback: Run Testcontainers via Docker if Install Fails
         if: failure()
@@ -47,7 +54,7 @@ jobs:
 
       - name: Start Testcontainers Cloud Agent
         run: |
-          testcontainers-cloud &  # Start agent in background
+          nohup testcontainers-cloud &  # Start agent in background
           sleep 5  # Wait for the agent to initialize
           testcontainers-cloud --status || echo "❌ Testcontainers Cloud agent failed to start!"
 
