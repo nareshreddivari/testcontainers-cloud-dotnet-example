@@ -18,11 +18,12 @@ jobs:
         with:
           dotnet-version: 7.0.x
 
-      - name: Install Testcontainers Cloud CLI
+      - name: Download and install Testcontainers Cloud
         run: |
-          curl -fsSL https://get.testcontainers.cloud -o install-tc.sh
+          curl -fsSL https://download.testcontainers.cloud/testcontainers-cloud-linux -o install-tc.sh
           chmod +x install-tc.sh
           ./install-tc.sh
+
 
 
       - name: Start Testcontainers Cloud Agent
