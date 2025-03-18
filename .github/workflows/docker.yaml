@@ -21,9 +21,20 @@ jobs:
         with:
           token: ${{ secrets.TC_CLOUD_TOKEN }}
 
+      - name: Force Testcontainers Cloud as Docker context
+        run: |
+          docker context use tcc || echo "Testcontainers Cloud context not available"
+
+      - name: Debug Docker Context
+        run: docker context ls
+
+      - name: Verify Testcontainers Cloud Connection
+        run: testcontainers-cloud --status
+
       - name: Change to project directory
         run: cd tests
 
       - name: Run Tests using Testcontainers
         run: dotnet test --logger:"console;verbosity=detailed"
-
+        env:
+          DOCKER_HOST: "tcp://localhost:44245"
