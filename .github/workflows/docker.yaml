@@ -30,33 +30,24 @@ jobs:
           chmod +x testcontainers-cloud
           mkdir -p $HOME/.testcontainers/bin
           mv testcontainers-cloud $HOME/.testcontainers/bin/
-          export PATH="$HOME/.testcontainers/bin:$PATH"
-          echo "export PATH=\"$HOME/.testcontainers/bin:\$PATH\"" >> $HOME/.bashrc
+          echo 'export PATH="$HOME/.testcontainers/bin:$PATH"' >> $HOME/.bashrc
           source $HOME/.bashrc
-        continue-on-error: true  # Allow failure and try alternative method
+        continue-on-error: true  # Allow workflow to continue if this step fails
 
-      - name: Verify Downloaded File (First 20 Lines)
+      - name: Verify Testcontainers Cloud Installation
         run: |
           if [ -f "$HOME/.testcontainers/bin/testcontainers-cloud" ]; then
-            echo "✅ File exists. Showing first 20 lines:"
-            head -n 20 $HOME/.testcontainers/bin/testcontainers-cloud
+            echo "✅ Testcontainers Cloud installed successfully!"
           else
-            echo "❌ File not found!"
+            echo "❌ Installation failed! Exiting..."
             exit 1
           fi
 
-      - name: Fallback: Run Testcontainers via Docker if Install Fails
-        if: failure()
-        run: |
-          echo "⚠️ Testcontainers Cloud download failed. Using Docker instead."
-          docker pull testcontainers/ryuk
-          docker run --rm testcontainers/ryuk
-
       - name: Start Testcontainers Cloud Agent
         run: |
-          nohup testcontainers-cloud &  # Start agent in background
+          nohup $HOME/.testcontainers/bin/testcontainers-cloud &
           sleep 5  # Wait for the agent to initialize
-          testcontainers-cloud --status || echo "❌ Testcontainers Cloud agent failed to start!"
+          $HOME/.testcontainers/bin/testcontainers-cloud --status || echo "❌ Testcontainers Cloud agent failed to start!"
 
       - name: Set Docker Context to Testcontainers Cloud
         run: |
