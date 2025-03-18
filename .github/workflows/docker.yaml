@@ -20,14 +20,27 @@ jobs:
 
       - name: Install Testcontainers Cloud
         run: |
-          set -e  # Exit if any command fails
+          set -e  # Exit immediately on error
           
-          echo "Downloading Testcontainers Cloud..."
+          echo "Checking DNS resolution for Testcontainers Cloud..."
+          if ! nslookup download.testcontainers.cloud > /dev/null 2>&1; then
+            echo "❌ Could not resolve host: download.testcontainers.cloud"
+          fi
+
+          echo "Attempting to download Testcontainers Cloud..."
           if curl -fsSL https://download.testcontainers.cloud/testcontainers-cloud-linux -o install-tc.sh; then
-            echo "Download successful!"
+            echo "✅ Download successful via curl!"
+          elif wget -q https://download.testcontainers.cloud/testcontainers-cloud-linux -O install-tc.sh; then
+            echo "✅ Download successful via wget!"
           else
-            echo "Primary download failed! Trying alternate method..."
-            curl -fsSL https://get.testcontainers.cloud | sh
+            echo "❌ Primary and fallback downloads failed! Trying alternative method..."
+            if curl -fsSL https://get.testcontainers.cloud | bash; then
+              echo "✅ Installed via alternative method!"
+              exit 0
+            else
+              echo "❌ All installation methods failed! Exiting..."
+              exit 1
+            fi
           fi
 
           chmod +x install-tc.sh
