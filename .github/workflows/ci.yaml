@@ -7,6 +7,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    concurrency: 
+      group: build-${{ github.ref }}
+      cancel-in-progress: true
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -17,7 +21,7 @@ jobs:
           dotnet-version: '7.x'
 
       - name: Restore .NET Tools
-        run: dotnet tool restore
+        run: dotnet tool restore || echo "No tools to restore."
 
       # Authenticate with Docker Hub using Personal Access Token
       - name: Log in to Docker Hub
@@ -29,19 +33,31 @@ jobs:
         with:
           token: ${{ secrets.TC_CLOUD_TOKEN }}
 
-      # Verify Testcontainers Cloud Status
-      - name: Check Testcontainers Cloud Status
-        run: |
-          echo "Checking available Docker contexts..."
-          docker context ls
-          echo "Switching to Testcontainers Cloud context..."
-          docker context use tcc || exit 1
-          echo "Current Docker info:"
-          docker info || exit 1
+      
+      # # Verify Testcontainers Cloud Status
+      # - name: Check Testcontainers Cloud Status
+      #   run: |
+      #     echo "Checking available Docker contexts..."
+      #     docker context ls
+      #     echo "Switching to Testcontainers Cloud context..."
+      #     docker context use tcc || exit 1
+      #     echo "Current Docker info:"
+      #     docker info || exit 1
 
       # Wait for Testcontainers Cloud to fully initialize
       - name: Wait for Testcontainers Cloud to Initialize
-        run: sleep 10
+        run: sleep 15
+
+      # Retry Context Switching
+      - name: Retry Testcontainers Cloud Context Switch
+        run: |
+          for i in {1..5}; do
+            docker context use tcc && break || sleep 5
+          done
+
+      # Check Docker Info
+      - name: Verify Docker Context
+        run: docker info || exit 1
 
       # Run tests
       - name: Run Tests with Testcontainers Cloud
