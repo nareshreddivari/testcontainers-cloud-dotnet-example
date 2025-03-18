@@ -23,18 +23,18 @@ jobs:
       - name: Restore .NET Tools
         run: dotnet tool restore || echo "No tools to restore."
 
-      # Authenticate with Docker Hub using Personal Access Token
+      # Authenticate with Docker Hub
       - name: Log in to Docker Hub
         run: echo "${{ secrets.DOCKER_HUB_PAT }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
 
-      # Check for Running Workflows & Prevent Multiple Testcontainers Sessions
-      - name: Ensure No Concurrent Workflows
+      # Ensure No Concurrent Workflows Before Running Testcontainers Cloud
+      - name: Ensure No Other Running Workflows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RUNNING_WORKFLOWS=$(gh run list --repo $GITHUB_REPOSITORY --status in_progress | grep "CI" | wc -l)
           if [[ "$RUNNING_WORKFLOWS" -gt 1 ]]; then
-            echo "Another workflow is running. Exiting to avoid conflicts."
+            echo "Another CI workflow is running. Exiting to prevent Testcontainers Cloud conflicts."
             exit 1
           fi
 
@@ -45,39 +45,38 @@ jobs:
           token: ${{ secrets.TC_CLOUD_TOKEN }}
 
       # Ensure Testcontainers Cloud Agent is Running
-      - name: Verify & Restart Testcontainers Cloud Agent if Needed
+      - name: Ensure Testcontainers Cloud Agent is Running
         run: |
           if ! pgrep -f testcontainers-cloud-agent > /dev/null; then
             echo "Testcontainers Cloud Agent is NOT running. Restarting..."
             nohup testcontainers-cloud-agent > /dev/null 2>&1 &
-            sleep 10
+            sleep 15  # Give it time to fully initialize
           fi
 
-      # Verify Testcontainers Cloud Context and Recreate if Needed
-      - name: Verify & Recreate Testcontainers Cloud Context
+      # Verify and Recreate 'tcc' Context if Missing
+      - name: Verify & Recreate 'tcc' Docker Context
         run: |
           echo "Checking available Docker contexts..."
-          docker context ls
+          docker context ls || true  # Don't fail if command errors
 
-          if docker context ls | grep -q "tcc"; then
-            echo "'tcc' context exists."
-          else
-            echo "'tcc' context missing! Recreating..."
+          # If 'tcc' context is missing, restart the agent to recreate it
+          if ! docker context ls | grep -q "tcc"; then
+            echo "'tcc' context missing! Restarting Testcontainers Cloud agent..."
             testcontainers-cloud-agent restart
-            sleep 15
+            sleep 20  # Allow more time for Testcontainers Cloud to be ready
           fi
 
-          # Retry switching context to 'tcc'
+          # Ensure 'tcc' is the active context
           echo "Switching to 'tcc' context..."
           for i in {1..5}; do
             docker context use tcc && break || sleep 5
           done
 
-      # Final Docker Info Check
+      # Final Docker Info Check with Rate-Limiting
       - name: Verify Docker Context
         run: |
           for i in {1..5}; do
-            docker info && break || (echo "Retrying in 5s..." && sleep 5)
+            docker info && break || (echo "Docker info retrying in 5s..." && sleep 5)
           done
 
       # Run tests
