@@ -18,18 +18,25 @@ jobs:
         with:
           dotnet-version: 7.0.x
 
-      - name: Pull Testcontainers Image Manually (Workaround)
+      - name: Pull Testcontainers Image Manually
         run: |
-          echo "Downloading Testcontainers dependencies..."
           docker pull testcontainers/ryuk
           docker pull postgres:14-alpine
 
+      - name: Ensure Testcontainers Cloud is Installed
+        run: |
+          export PATH="$HOME/.testcontainers/bin:$PATH"
+          if ! command -v testcontainers-cloud &> /dev/null; then
+            echo "❌ Testcontainers Cloud is not installed! Installing..."
+            curl -fsSL https://get.testcontainers.cloud | sh
+            export PATH="$HOME/.testcontainers/bin:$PATH"
+          fi
+          echo "✅ Testcontainers Cloud is installed."
+
       - name: Start Testcontainers Cloud Agent
         run: |
-          echo "Starting Testcontainers Cloud agent..."
           testcontainers-cloud &  # Start agent in background
           sleep 5  # Wait for agent to initialize
-
           if ! testcontainers-cloud --status; then
             echo "❌ Testcontainers Cloud agent failed to start!"
             exit 1
@@ -38,7 +45,6 @@ jobs:
 
       - name: Set Docker Context to Testcontainers Cloud
         run: |
-          echo "Setting Docker context to Testcontainers Cloud..."
           docker context use tcc || { echo "❌ Testcontainers Cloud context not available!"; exit 1; }
           docker context ls
 
@@ -55,6 +61,5 @@ jobs:
 
       - name: Run Tests with Testcontainers Cloud
         run: |
-          echo "Running tests..."
           cd tests
           dotnet test --logger:"console;verbosity=detailed"
