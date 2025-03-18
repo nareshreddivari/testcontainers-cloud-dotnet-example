@@ -21,8 +21,10 @@ jobs:
       - name: Install Testcontainers Cloud CLI
         run: |
           curl -fsSL https://get.testcontainers.cloud | sh
-          echo "export PATH=\"$HOME/.testcontainers/bin:$PATH\"" >> $HOME/.bashrc
-          source $HOME/.bashrc
+          echo 'export PATH="$HOME/.testcontainers/bin:$PATH"' >> ~/.bashrc
+          echo 'export PATH="$HOME/.testcontainers/bin:$PATH"' >> ~/.profile
+          export PATH="$HOME/.testcontainers/bin:$PATH"
+
 
       - name: Start Testcontainers Cloud Agent
         run: |
